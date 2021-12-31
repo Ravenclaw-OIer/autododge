@@ -1,0 +1,70 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["Modeling 1"]
+#Text["Simple Aimed Shot"]
+#include "script/default_system/Default_ShotConst.txt"
+#include "./lib/general.dnh"
+#include "./lib/logger.dnh"
+#include "./player-logic.dnh"
+let objBoss;
+let frame = 0;
+let objScene = GetEnemyBossSceneObjectID();
+let logger;
+
+@Event{
+  alternative (GetEventType())
+    case (EV_REQUEST_LIFE) {
+      SetScriptResult(500);
+    }
+    case (EV_REQUEST_TIMER) {
+      SetScriptResult(60);
+    }
+    case (EV_REQUEST_SPELL_SCORE) {
+      SetScriptResult(1000000);
+    }
+
+}
+
+
+@Initialize{
+  objBoss = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+  ObjEnemy_Regist(objBoss);
+  ObjEnemyBossScene_StartSpell(objScene);
+  ObjMove_SetDestAtFrame(objBoss, GetCenterX(), 60, 60);
+  logger = ObjLogger_Create("log.txt");
+  TDrawLoop;
+  TFinalize;
+}
+
+task TDrawLoop {
+  let imgExRumia = GetCurrentScriptDirectory() ~ "ExRumia.png";
+  ObjPrim_SetTexture(objBoss, imgExRumia);
+  ObjSprite2D_SetSourceRect(objBoss, 64, 1, 127, 64);
+  ObjSprite2D_SetDestCenter(objBoss);
+}
+
+@MainLoop{
+  ObjEnemy_SetIntersectionCircleToPlayer(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 24);
+  ObjEnemy_SetIntersectionCircleToShot(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 32);
+  if (frame > 60) { // We have finished moving
+    // create an aimed shot for testing
+    if (frame % 120 == 65) {
+      for (let ofs = -30; ofs <= 30; ofs += 5)
+        CreateShotA1(ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 5,
+                    GetAngleToPlayer(objBoss) + ofs, DS_BALL_S_RED, 0);
+    }
+  }
+  TPlayerLogicMain();
+  frame++;
+  yield;
+}
+
+
+task TFinalize {
+  while (ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) yield;
+  Obj_Delete(objBoss);
+  DeleteShotAll(TYPE_ALL, TYPE_IMMEDIATE);
+  SetAutoDeleteObject(true);
+  CloseScript(GetOwnScriptID());
+  return;
+}

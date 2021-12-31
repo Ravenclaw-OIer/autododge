@@ -1,0 +1,50 @@
+function ObjLogger_Create(logFile) {
+  let objFile = ObjFile_Create(OBJ_FILE_TEXT);
+  ObjFile_OpenNW(objFile, logFile);
+  return objFile;
+}
+
+function ObjLogger_Log(objID, content) {
+  ObjFileT_AddLine(objID, content);
+  ObjFile_Store(objID);
+}
+
+function ObjLogger_Debug(objID, content) {
+  ObjLogger_Log(objID, "[DEBUG] " ~ content);
+}
+
+function ObjLogger_Debug(objID, caller, content) {
+  ObjLogger_Log(objID, "[" ~ caller ~ "]: [DEBUG] " ~ content);
+}
+
+function ObjLogger_Info(objID, content) {
+  ObjLogger_Log(objID, "[INFO] " ~ content);
+}
+
+function ObjLogger_Info(objID, caller, content) {
+  ObjLogger_Log(objID, "[" ~ caller ~ "]: [INFO] " ~ content);
+}
+
+function ObjLogger_Warn(objID, content) {
+  ObjLogger_Log(objID, "[WARN] " ~ content);
+}
+
+function ObjLogger_Warn(objID, caller, content) {
+  ObjLogger_Log(objID, "[" ~ caller ~ "]: [WARN] " ~ content);
+}
+
+function ObjLogger_Error(objID, content) {
+  ObjLogger_Log(objID, "[ERROR] " ~ content);
+}
+
+function ObjLogger_Error(objID, caller, content) {
+  ObjLogger_Log(objID, "[" ~ caller ~ "]: [ERROR] " ~ content);
+}
+
+function ObjLogger_Fatal(objID, content) {
+  ObjLogger_Log(objID, "[FATAL] " ~ content);
+}
+
+function ObjLogger_Fatal(objID, caller, content) {
+  ObjLogger_Log(objID, "[" ~ caller ~ "]: [FATAL] " ~ content);
+}

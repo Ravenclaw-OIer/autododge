@@ -1,0 +1,25 @@
+#include "./logger.dnh"
+function MovePlayer(direction, focused) {
+//  ObjLogger_Info(logger, "MovePlayer",  "direction = " ~ direction ~ ", focused = " ~ focused);
+  if (focused) SetVirtualKeyState(VK_SLOWMOVE, KEY_PUSH);
+  SetVirtualKeyState(direction, KEY_PUSH);
+}
+function GetTouchedEdge(x, y) {
+//  WriteLog("Checking touched edge: position is " ~ ToString(x) ~ ", " ~ ToString(y));
+  let collideWalls = [];
+  if (x <= 30) collideWalls = collideWalls ~ [2]; // left
+  if (y <= 30) collideWalls = collideWalls ~ [3]; // top
+  if (y >= GetStgFrameHeight() - 30)
+    collideWalls = collideWalls ~ [1]; // bottom, change this value to 2 if you want to bounce at bottom also
+  if (x >= GetStgFrameWidth() - 30)
+    collideWalls = collideWalls ~ [0]; // right
+  return collideWalls;
+}
+function GetCenterX(){return GetStgFrameWidth() / 2;}
+function GetCenterY(){return GetStgFrameHeight() / 2;}
+function abs(x) { if (x > 0) return x; return -x; }
+const BALL_SMALL_RECT = [0, 12, 17, 29];
+function GetHitboxRadius(rect) {
+  let width = abs(rect[0] - rect[2]), height = abs(rect[1] - rect[3]);
+  return max(min(width, height) / 3 - 3, 3);
+}

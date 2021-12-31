@@ -1,0 +1,78 @@
+#include "./lib/vector.dnh"
+let bestChoice = -1, bestValue = 1000000;
+const VELO_FOCUSED = 2.0, VELO_SPREAD = 4.5;
+task TPlayerLogicMain {
+  // if (frame % 7 != 0) MovePlayer(bestChoice % 4, 1);
+  // Get the shots requiring concern
+  let shots = GetShotIdInCircleA2(GetPlayerX(), GetPlayerY(), 50, TARGET_ENEMY);
+  let n = length(shots);
+  if (!n) return;
+  // Calculate the radius of the blown-up version of enemy bullet
+  const shotSize = GetHitboxRadius(BALL_SMALL_RECT), playerHitboxSize = 2;
+  const radius = shotSize + playerHitboxSize;
+  let obstacles = [];
+  let centerVector = [];
+  for each (shot in shots) {
+    let vectorToShot = GetVector(GetPlayerID(), shot);
+    // Calculate the angle of the velocity obstacle
+    let distanceToShot = ObjVector_GetLength(vectorToShot);
+    let tangentLength = (distanceToShot ^ 2 - radius ^ 2) ^ 0.5;
+    let angle = atan2(radius, tangentLength);
+    obstacles = obstacles ~ [angle];
+    centerVector = centerVector ~ [vectorToShot];
+  }
+  // Calculate focused options
+  bestChoice = -1; bestValue = 1000000;
+  ascent (i in 0..4) {
+    let curAngle = i * 90;
+  //  WriteLog("Current Moving angle is " ~ ToString(curAngle));
+    // check wall collision
+    let touchedEdge = GetTouchedEdge(GetPlayerX(), GetPlayerY());
+    let bad = false;
+    for each (edge in touchedEdge) {
+      if (edge == i) {
+  //      ObjLogger_Warn(logger, "TPlayerLogicMain", "Hit Wall " ~ ToString(i));
+        bad = true;
+        break;
+      }
+    }
+    if (bad) continue;
+    let cntFocused = 0, cntSpread = 0;
+    ascent (j in 0..length(obstacles)) {
+      let normalizedVectorToObstacle = ObjVector_Normalize(centerVector[j]),
+          angle = obstacles[j];
+      let vectorToVelocityFocused = ObjVector_Create(cos(curAngle) * VELO_FOCUSED,
+                                sin(curAngle) * VELO_FOCUSED);
+      let normalizedVectorToVelocityFocused = ObjVector_Normalize(vectorToVelocityFocused);
+      if (ObjVector_Dot(normalizedVectorToObstacle, normalizedVectorToVelocityFocused) < cos(angle)) {
+        cntFocused++;
+      }
+      let vectorToVelocitySpread = ObjVector_Create(cos(curAngle) * VELO_SPREAD,
+                                sin(curAngle) * VELO_SPREAD);
+      let normalizedVectorToVelocitySpread = ObjVector_Normalize(vectorToVelocitySpread);
+      if (ObjVector_Dot(normalizedVectorToObstacle, normalizedVectorToVelocitySpread) < cos(angle)) {
+        cntSpread++;
+      }
+    }
+  //  ObjLogger_Info(logger, "TPlayerLogicMain", "Focused Moving: " ~ ToString(cntFocused));
+  //  ObjLogger_Info(logger, "TPlayerLogicMain", "Spread Moving: " ~ ToString(cntSpread));
+    if (cntFocused < bestValue) {
+      bestValue = cntFocused;
+      bestChoice = GetChoice(i) + 4;
+    }
+    if (cntSpread < bestValue) {
+      bestValue = cntSpread;
+      bestChoice = GetChoice(i);
+    }
+  }
+  MovePlayer(bestChoice % 4, bestChoice >= 4);
+}
+
+function GetChoice(x) {
+  // Map the angle chosen to the virtual key state
+  // which is LRUD
+  if (x == 0) return 1; // right
+  if (x == 1) return 3; // down
+  if (x == 2) return 0; // left
+  if (x == 3) return 2; // up
+}
