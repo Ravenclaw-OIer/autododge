@@ -4,13 +4,16 @@
 */
 #include "./dict.dnh"
 function ObjVector_Create(x, y) {
+  // This function MUST be called, directly or indirectly, when a
+  // new vector is initialized! It populates the ObjDict with necessary
+  // x and y coordinations
   let vec = ObjDict_Create();
   ObjDict_Set(vec, "x", x);
   ObjDict_Set(vec, "y", y);
   return vec;
 }
 function ObjVector_Create() {
-  let vec = ObjDict_Create();
+  let vec = ObjVector_Create(0, 0);
   return vec;
 }
 function ObjVector_GetX(v) { return ObjDict_Get(v, "x"); }
@@ -21,6 +24,10 @@ function ObjVector_GetLength(v) {
   let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
   return power(x * x + y * y, 0.5);
 }
+function ObjVector_GetLengthSquared(v) {
+  let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
+  return x * x + y * y;
+}
 function ObjVector_SetXY(v, x, y) {
   ObjVector_SetX(v, x);
   ObjVector_SetY(v, y);
@@ -30,12 +37,61 @@ function ObjVector_Dot(v1, v2) {
   let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
   return x1 * x2 + y1 * y2;
 }
+function ObjVector_GetProjection(v1, v2) {
+  let dot = ObjVector_Dot(v1, v2);
+  let lambda = dot / (ObjVector_GetLengthSquared(v2));
+  return ObjVector_Multiply(v2, lambda);
+}
+function ObjVector_Add(v1, v2) {
+  let x1 = ObjVector_GetX(v1), x2 = ObjVector_GetX(v2);
+  let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
+  return ObjVector_Create(x1 + x2, y1 + y2);
+}
+function ObjVector_Add(v1, x2, y2) {
+  let x1 = ObjVector_GetX(v1);
+  let y1 = ObjVector_GetY(v1);
+  return ObjVector_Create(x1 + x2, y1 + y2);
+}
+function ObjVector_AddInPlace(v1, v2) {
+  let x1 = ObjVector_GetX(v1), x2 = ObjVector_GetX(v2);
+  let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
+  ObjVector_SetXY(v1, x1 + x2, y1 + y2);
+}
+function ObjVector_Subtract(v1, v2) {
+  let x1 = ObjVector_GetX(v1), x2 = ObjVector_GetX(v2);
+  let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
+  return ObjVector_Create(x1 - x2, y1 - y2);
+}
+function ObjVector_Subtract(v1, x2, y2) {
+  let x1 = ObjVector_GetX(v1);
+  let y1 = ObjVector_GetY(v1);
+  return ObjVector_Create(x1 - x2, y1 - y2);
+}
+function ObjVector_SubtractInPlace(v1, v2) {
+  let x1 = ObjVector_GetX(v1), x2 = ObjVector_GetX(v2);
+  let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
+  ObjVector_SetXY(v1, x1 - x2, y1 - y2);
+}
 function ObjVector_Normalize(v) {
   let vret = ObjVector_Create();
   let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
   let m = ObjVector_GetLength(v);
   ObjVector_SetXY(vret, x / m, y / m);
   return vret;
+}
+function ObjVector_GetNormal(v) {
+  let vret = ObjVector_Create();
+  let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
+  ObjVector_SetXY(vret, -y, +x);
+  return vret;
+}
+function ObjVector_Multiply(v, lambda) {
+  let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
+  let vret = ObjVector_Create(x * lambda, y * lambda);
+  return vret;
+}
+function ObjVector_IsZero(v) {
+  return ObjVector_GetX(v) == 0 && ObjVector_GetY(v) == 0;
 }
 // === Non ObjVector_* functions ===
 // Helper functions, utilities, and functions that make things work
@@ -44,5 +100,19 @@ function GetVector(objSource, objTarget) {
   let sx = ObjMove_GetX(objSource), sy = ObjMove_GetY(objSource);
   let tx = ObjMove_GetX(objTarget), ty = ObjMove_GetY(objTarget);
   ObjVector_SetXY(vret, tx - sx, ty - sy);
+  return vret;
+}
+function GetMaxVector(v1, v2) {
+  let vret = ObjVector_Create();
+  let x1 = ObjVector_GetX(v1), x2 = ObjVector_GetX(v2);
+  let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
+  ObjVector_SetXY(vret, max(x1, y1), max(x2, y2));
+  return vret;
+}
+function GetMinVector(v1, v2) {
+  let vret = ObjVector_Create();
+  let x1 = ObjVector_GetX(v1), x2 = ObjVector_GetX(v2);
+  let y1 = ObjVector_GetY(v1), y2 = ObjVector_GetY(v2);
+  ObjVector_SetXY(vret, min(x1, y1), min(x2, y2));
   return vret;
 }

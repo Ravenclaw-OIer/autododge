@@ -31,7 +31,7 @@ let logger;
   ObjEnemy_Regist(objBoss);
   ObjEnemyBossScene_StartSpell(objScene);
   ObjMove_SetDestAtFrame(objBoss, GetCenterX(), 60, 60);
-  logger = ObjLogger_Create("log.txt");
+//  logger = ObjLogger_Create("log.txt");
   TDrawLoop;
   TFinalize;
 }
@@ -50,8 +50,16 @@ task TDrawLoop {
     // create an aimed shot for testing
     if (frame % 120 == 65) {
       for (let ofs = -30; ofs <= 30; ofs += 5)
-        CreateShotA1(ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 5,
+        CreateShotA1(ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 1,
                     GetAngleToPlayer(objBoss) + ofs, DS_BALL_S_RED, 0);
+    }
+    if (frame % 120 == 105) {
+      let angle = rand_int(0, 360);
+      loop(20) {
+        CreateShotA1(ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 1,
+                    angle, DS_BALL_S_GREEN, 0);
+        angle = (angle + 12) % 360;
+      }
     }
   }
   TPlayerLogicMain();

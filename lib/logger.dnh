@@ -1,3 +1,6 @@
+/* // DO NOT USE!
+// This logger is hopelessly broken in the way that
+// it doesn't actually write log files and crash the game
 function ObjLogger_Create(logFile) {
   let objFile = ObjFile_Create(OBJ_FILE_TEXT);
   ObjFile_OpenNW(objFile, logFile);
@@ -47,4 +50,4 @@ function ObjLogger_Fatal(objID, content) {
 
 function ObjLogger_Fatal(objID, caller, content) {
   ObjLogger_Log(objID, "[" ~ caller ~ "]: [FATAL] " ~ content);
-}
+} */

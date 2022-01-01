@@ -1,7 +1,157 @@
 #include "./lib/vector.dnh"
 let bestChoice = -1, bestValue = 1000000;
 const VELO_FOCUSED = 2.0, VELO_SPREAD = 4.5;
+const SPREAD_THRESHOLD = 0.000020, MOVE_THRESHOLD = 0.000005;
+const WEIGHT = 20;
+const BASE_RADIUS = 7;
+// extra safety space for projection dodging
+const SMALL_RADIUS = 4;
+// extra safety space for force dodging
+const LARGE_RADIUS = 5;
 task TPlayerLogicMain {
+  let force = GetForceVector();
+  let x = ObjVector_GetX(force), y = ObjVector_GetY(force);
+  WriteLog("Force vector: " ~ ToString(x) ~ ", " ~ ToString(y));
+  if (absolute(x) > MOVE_THRESHOLD) {
+    if (absolute(x) < SPREAD_THRESHOLD) {
+      SetVirtualKeyState(VK_SLOWMOVE, KEY_PUSH);
+    } else {
+      SetVirtualKeyState(VK_SLOWMOVE, KEY_PULL);
+    }
+    if (x < 0) {
+      SetVirtualKeyState(VK_RIGHT, KEY_PUSH);
+      SetVirtualKeyState(VK_LEFT, KEY_PULL);
+    } else {
+      SetVirtualKeyState(VK_LEFT, KEY_PUSH);
+      SetVirtualKeyState(VK_RIGHT, KEY_PULL);
+    }
+  }
+  if (absolute(y) > MOVE_THRESHOLD) {
+    if (absolute(y) < SPREAD_THRESHOLD) {
+      SetVirtualKeyState(VK_SLOWMOVE, KEY_PUSH);
+    } else {
+      SetVirtualKeyState(VK_SLOWMOVE, KEY_PULL);
+    }
+    if (y > 0) {
+      SetVirtualKeyState(VK_UP, KEY_PUSH);
+      SetVirtualKeyState(VK_DOWN, KEY_PULL);
+    } else {
+      SetVirtualKeyState(VK_DOWN, KEY_PUSH);
+      SetVirtualKeyState(VK_UP, KEY_PULL);
+    }
+  }
+  // cleanup
+  Obj_Delete(force);
+}
+
+function GetForceVector() {
+  // Get all the bullets worth considering
+  let pX = GetPlayerX(), pY = GetPlayerY();
+  const r1 = SMALL_RADIUS + BASE_RADIUS, r2 = LARGE_RADIUS + BASE_RADIUS;
+  let force = ObjVector_Create();
+  let consideredBullets = GetShotIdInCircleA2(pX, pY, 20, TARGET_ENEMY);
+  for each (bullet in consideredBullets) {
+    // We use Axis-aligned Bounding Box (AABB) for collision detection
+    // See [[enwiki:Axis aligned bounding box]] for more
+    // Notations used below:
+    // Player position = c (Using vectors to represent Points)
+    // Bullet current position = a
+    // Bullet projected future position = b (using the GetSpeedX|Y functions)
+    let A = ObjVector_Create(ObjMove_GetX(bullet), ObjMove_GetY(bullet));
+    let B = ObjVector_Add(A, WEIGHT * ObjMove_GetSpeedX(bullet), WEIGHT * ObjMove_GetSpeedY(bullet));
+    let C = ObjVector_Create(pX, pY);
+    // The bullet's movement
+    // (Vector from current position to projected future position)
+    let AB = ObjVector_Subtract(B, A);  // ab = b - a
+    // Vector from bullet to player
+    let AC = ObjVector_Subtract(C, A);  // ac = c - a
+    // Vector from bullet to normal (projection)
+    let AD = ObjVector_GetProjection(AC, AB);
+    // The normal(projection) vector
+    let D = ObjVector_Add(AD, A);
+    let CD = ObjVector_Subtract(D, C);  // cd = d - c
+
+    if (ObjVector_GetLengthSquared(AC) < r2 ^ 2){
+      // Update the force vector, using Coulomb's Law
+      let normalizedAC = ObjVector_Normalize(AC);
+      let weightedAC = ObjVector_Multiply(AC, WEIGHT / ObjVector_GetLengthSquared(AC));
+      // For configurability's sake, the WEIGHT is set as a constant
+      // so we can tweak on the impact factor
+      ObjVector_SubtractInPlace(force, weightedAC);
+      // remove the used temporary variables
+      Obj_Delete(normalizedAC);
+      Obj_Delete(weightedAC);
+    } else if (IsVectorInAABB(D, A, B)) {
+      // If the projection is within the bounding Box
+      // formed by A (bullet original position)
+      // and B (bullet predicted position)
+      // Then we are going to move it
+      if (ObjVector_IsZero(CD)) {
+        // directly perpendicular move
+        let bulletVelo = ObjVector_Create(ObjMove_GetSpeedX(bullet), ObjMove_GetSpeedY(bullet));
+        bulletVelo = ObjVector_GetNormal(bulletVelo);
+        let normalizedVelo = ObjVector_Normalize(bulletVelo);
+        let weightedVelo = ObjVector_Multiply(normalizedVelo, WEIGHT * ObjVector_GetLengthSquared(AC));
+        ObjVector_AddInPlace(force, weightedVelo);
+        Obj_Delete(bulletVelo);
+        Obj_Delete(normalizedVelo);
+        Obj_Delete(weightedVelo);
+      } else if (ObjVector_GetLengthSquared(CD) < r1 ^ 2) {
+        // not-so-perpendicular move
+        let normalizedCD = ObjVector_Normalize(CD);
+        let weightedCD = ObjVector_Multiply(normalizedCD, WEIGHT / ObjVector_GetLengthSquared(AC));
+        ObjVector_AddInPlace(force, weightedCD);
+        Obj_Delete(normalizedCD);
+        Obj_Delete(weightedCD);
+      }
+    }
+    // the repulsion effects of the Wall
+    let height = GetStgFrameHeight(), width = GetStgFrameWidth();
+    let dxr = absolute(power(width - pX, 2));
+    let dxl = absolute(power(pX, 2));
+    let dyt = absolute(power(pY, 2));
+    let dyb = absolute(power(height - pY, 2));
+    let wallRepulsion = ObjVector_Create
+              ((0.2 / dxr - 0.2 / dxl) * WEIGHT, (-0.6 / dyt + 0.1 / dyb) * WEIGHT);
+              // the weight of bottom repulsion is lower because we want the
+              // bot to stay close to the lower part of the screen
+    ObjVector_AddInPlace(force, wallRepulsion);
+    // destruct all objects before our system is clogged up
+    Obj_Delete(wallRepulsion);
+    Obj_Delete(A);
+    Obj_Delete(B);
+    Obj_Delete(C);
+    Obj_Delete(D);
+    Obj_Delete(AB);
+    Obj_Delete(AC);
+    Obj_Delete(AD);
+    Obj_Delete(CD);
+  }
+  return force;
+}
+
+function IsVectorInAABB(v, a, b) {
+  let botright = GetMaxVector(a, b), topleft = GetMinVector(a, b);
+  let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
+  let xr = ObjVector_GetX(botright), yr = ObjVector_GetY(botright);
+  let xl = ObjVector_GetX(topleft), yl = ObjVector_GetY(topleft);
+  let res = (x >= xl && x <= xr && y >= yl && y <= yr);
+  Obj_Delete(botright);
+  Obj_Delete(topleft);
+  return res;
+}
+
+// === Obsolete ===
+function GetChoice(x) {
+  // Map the angle chosen to the virtual key state
+  // which is LRUD
+  if (x == 0) return 1; // right
+  if (x == 1) return 3; // down
+  if (x == 2) return 0; // left
+  if (x == 3) return 2; // up
+}
+/*
+task TVOLogic {
   // if (frame % 7 != 0) MovePlayer(bestChoice % 4, 1);
   // Get the shots requiring concern
   let shots = GetShotIdInCircleA2(GetPlayerX(), GetPlayerY(), 50, TARGET_ENEMY);
@@ -66,13 +216,4 @@ task TPlayerLogicMain {
     }
   }
   MovePlayer(bestChoice % 4, bestChoice >= 4);
-}
-
-function GetChoice(x) {
-  // Map the angle chosen to the virtual key state
-  // which is LRUD
-  if (x == 0) return 1; // right
-  if (x == 1) return 3; // down
-  if (x == 2) return 0; // left
-  if (x == 3) return 2; // up
-}
+} */
