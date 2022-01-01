@@ -1,7 +1,7 @@
 #TouhouDanmakufu[Single]
 #ScriptVersion[3]
-#Title["Spellcard 4"]
-#Text["Dawn [The girl gazing at the sky]"]
+#Title["Modeling 2"]
+#Text["Border of Wave and Particle"]
 #include "script/default_system/Default_ShotConst.txt"
 #include "./lib/general.dnh"
 #include "./player-logic.dnh"
@@ -28,7 +28,7 @@ let objScene = GetEnemyBossSceneObjectID();
   objBoss = ObjEnemy_Create(OBJ_ENEMY_BOSS);
   ObjEnemy_Regist(objBoss);
   ObjEnemyBossScene_StartSpell(objScene);
-  ObjMove_SetDestAtFrame(objBoss, GetCenterX(), 60, 60);
+  ObjMove_SetDestAtFrame(objBoss, GetCenterX(), GetCenterY(), 60);
   //logger = ObjLogger_Create("./log.txt");
   TDrawLoop;
   TFinalize;
@@ -44,13 +44,26 @@ task TDrawLoop {
 @MainLoop{
 ObjEnemy_SetIntersectionCircleToPlayer(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 24);
 ObjEnemy_SetIntersectionCircleToShot(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 32);
-  if (frame > 60) { // We have finished moving
-
+  if (frame == 61) { // We have finished moving
+    BoWaP;
   }
   frame++;
+  TPlayerLogicMain;
   yield;
 }
-
+task BoWaP{
+    let angleT = rand(0, 360);
+    let objcount = 0;
+    loop {
+        loop(5){
+            let obj = CreateShotA1(ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 3, angleT, 47, 5);
+            angleT += 360/5;
+        }
+        angleT += sin(objcount) * cos(objcount) * 12; //BOWAP
+        objcount++;
+        yield;
+    }
+}
 
 task TFinalize {
   while (ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) yield;

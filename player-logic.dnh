@@ -2,7 +2,7 @@
 let bestChoice = -1, bestValue = 1000000;
 const VELO_FOCUSED = 2.0, VELO_SPREAD = 4.5;
 const SPREAD_THRESHOLD = 0.000020, MOVE_THRESHOLD = 0.000005;
-const WEIGHT = 20;
+const WEIGHT = 20, WEIGHT_VELO = 20;
 const BASE_RADIUS = 7;
 // extra safety space for projection dodging
 const SMALL_RADIUS = 4;
@@ -51,14 +51,12 @@ function GetForceVector() {
   let force = ObjVector_Create();
   let consideredBullets = GetShotIdInCircleA2(pX, pY, 20, TARGET_ENEMY);
   for each (bullet in consideredBullets) {
-    // We use Axis-aligned Bounding Box (AABB) for collision detection
-    // See [[enwiki:Axis aligned bounding box]] for more
     // Notations used below:
     // Player position = c (Using vectors to represent Points)
     // Bullet current position = a
     // Bullet projected future position = b (using the GetSpeedX|Y functions)
     let A = ObjVector_Create(ObjMove_GetX(bullet), ObjMove_GetY(bullet));
-    let B = ObjVector_Add(A, WEIGHT * ObjMove_GetSpeedX(bullet), WEIGHT * ObjMove_GetSpeedY(bullet));
+    let B = ObjVector_Add(A, WEIGHT_VELO * ObjMove_GetSpeedX(bullet), WEIGHT_VELO * ObjMove_GetSpeedY(bullet));
     let C = ObjVector_Create(pX, pY);
     // The bullet's movement
     // (Vector from current position to projected future position)
@@ -81,13 +79,12 @@ function GetForceVector() {
       // remove the used temporary variables
       Obj_Delete(normalizedAC);
       Obj_Delete(weightedAC);
-    } else if (IsVectorInAABB(D, A, B)) {
+    } else if (IsVectorOnSegment(D, A, B)) {
       // If the projection is within the bounding Box
       // formed by A (bullet original position)
       // and B (bullet predicted position)
       // Then we are going to move it
       if (ObjVector_IsZero(CD)) {
-        // directly perpendicular move
         let bulletVelo = ObjVector_Create(ObjMove_GetSpeedX(bullet), ObjMove_GetSpeedY(bullet));
         bulletVelo = ObjVector_GetNormal(bulletVelo);
         let normalizedVelo = ObjVector_Normalize(bulletVelo);
@@ -97,7 +94,6 @@ function GetForceVector() {
         Obj_Delete(normalizedVelo);
         Obj_Delete(weightedVelo);
       } else if (ObjVector_GetLengthSquared(CD) < r1 ^ 2) {
-        // not-so-perpendicular move
         let normalizedCD = ObjVector_Normalize(CD);
         let weightedCD = ObjVector_Multiply(normalizedCD, WEIGHT / ObjVector_GetLengthSquared(AC));
         ObjVector_AddInPlace(force, weightedCD);
@@ -107,12 +103,12 @@ function GetForceVector() {
     }
     // the repulsion effects of the Wall
     let height = GetStgFrameHeight(), width = GetStgFrameWidth();
-    let dxr = absolute(power(width - pX, 2));
-    let dxl = absolute(power(pX, 2));
-    let dyt = absolute(power(pY, 2));
-    let dyb = absolute(power(height - pY, 2));
+    let xr = absolute(power(width - pX, 2));
+    let xl = absolute(power(pX, 2));
+    let yt = absolute(power(pY, 2));
+    let yb = absolute(power(height - pY, 2));
     let wallRepulsion = ObjVector_Create
-              ((0.2 / dxr - 0.2 / dxl) * WEIGHT, (-0.6 / dyt + 0.1 / dyb) * WEIGHT);
+              ((0.2 / xr - 0.2 / xl) * WEIGHT, (-0.6 / yt + 0.1 / yb) * WEIGHT);
               // the weight of bottom repulsion is lower because we want the
               // bot to stay close to the lower part of the screen
     ObjVector_AddInPlace(force, wallRepulsion);
@@ -130,7 +126,7 @@ function GetForceVector() {
   return force;
 }
 
-function IsVectorInAABB(v, a, b) {
+function IsVectorOnSegment(v, a, b) {
   let botright = GetMaxVector(a, b), topleft = GetMinVector(a, b);
   let x = ObjVector_GetX(v), y = ObjVector_GetY(v);
   let xr = ObjVector_GetX(botright), yr = ObjVector_GetY(botright);
